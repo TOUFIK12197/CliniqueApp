@@ -1,0 +1,176 @@
+-- ============================================
+-- SCRIPT DE CRÉATION - Clinique SantéPlus
+-- ============================================
+
+CREATE DATABASE IF NOT EXISTS clinique_santeplus 
+CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE clinique_santeplus;
+
+-- Table Utilisateur
+CREATE TABLE Utilisateur (
+    idUtilisateur INT AUTO_INCREMENT PRIMARY KEY,
+    login VARCHAR(50) NOT NULL UNIQUE,
+    motDePasse VARCHAR(255) NOT NULL,
+    role ENUM('ADMIN','MEDECIN','SECRETAIRE') NOT NULL,
+    actif BOOLEAN DEFAULT TRUE,
+    nomUtilisateur VARCHAR(100) NOT NULL,
+    prenomUtilisateur VARCHAR(100) NOT NULL,
+    telephoneUtilisateur VARCHAR(20),
+    emailUtilisateur VARCHAR(150)
+);
+
+-- Table Specialite
+CREATE TABLE specialite (
+    idspecialite INT AUTO_INCREMENT PRIMARY KEY,
+    libelle VARCHAR(100) NOT NULL,
+    description TEXT
+);
+
+-- Table Statistiques
+CREATE TABLE Statistiques (
+    idstatistiques INT AUTO_INCREMENT PRIMARY KEY,
+    periode VARCHAR(50),
+    nbRendezVous INT DEFAULT 0,
+    nbPatient INT DEFAULT 0,
+    nbAnnulations INT DEFAULT 0,
+    nbconsultation INT DEFAULT 0
+);
+
+-- Table Administrateur
+CREATE TABLE Administrateur (
+    idUtilisateur INT PRIMARY KEY,
+    idspecialite INT,
+    idstatistiques INT,
+    FOREIGN KEY (idUtilisateur) REFERENCES Utilisateur(idUtilisateur) ON DELETE CASCADE,
+    FOREIGN KEY (idspecialite) REFERENCES specialite(idspecialite),
+    FOREIGN KEY (idstatistiques) REFERENCES Statistiques(idstatistiques)
+);
+
+-- Table Medecin
+CREATE TABLE Medecin (
+    idUtilisateur INT PRIMARY KEY,
+    numOrdre VARCHAR(50) NOT NULL UNIQUE,
+    FOREIGN KEY (idUtilisateur) REFERENCES Utilisateur(idUtilisateur) ON DELETE CASCADE
+);
+
+-- Table Patient
+CREATE TABLE Patient (
+    idPatient INT AUTO_INCREMENT PRIMARY KEY,
+    nomPatient VARCHAR(100) NOT NULL,
+    prenomPatient VARCHAR(100) NOT NULL,
+    dateNaissance DATE,
+    telephonePatient VARCHAR(20),
+    emailPatient VARCHAR(150),
+    adresse VARCHAR(255),
+    groupeSanguin VARCHAR(5)
+);
+
+-- Table Secretaire
+CREATE TABLE Secretaire (
+    idUtilisateur INT PRIMARY KEY,
+    idPatient INT,
+    FOREIGN KEY (idUtilisateur) REFERENCES Utilisateur(idUtilisateur) ON DELETE CASCADE,
+    FOREIGN KEY (idPatient) REFERENCES Patient(idPatient)
+);
+
+-- Table Consultation
+CREATE TABLE Consultation (
+    idConsultation INT AUTO_INCREMENT PRIMARY KEY,
+    DateConsult DATE NOT NULL,
+    diagnostic TEXT,
+    tension VARCHAR(20),
+    notes TEXT,
+    prescription TEXT,
+    poids DECIMAL(5,2)
+);
+
+-- Table RendezVous
+CREATE TABLE RendezVous (
+    idRdv INT AUTO_INCREMENT PRIMARY KEY,
+    dateHeure DATETIME NOT NULL,
+    motif VARCHAR(255),
+    statut ENUM('EN_ATTENTE','CONFIRME','ANNULE','TERMINE') DEFAULT 'EN_ATTENTE',
+    idConsultation INT,
+    FOREIGN KEY (idConsultation) REFERENCES Consultation(idConsultation)
+);
+
+-- Table de relation : possede (Medecin - Specialite)
+CREATE TABLE possede (
+    idUtilisateur INT NOT NULL,
+    idspecialite INT NOT NULL,
+    PRIMARY KEY (idUtilisateur, idspecialite),
+    FOREIGN KEY (idUtilisateur) REFERENCES Medecin(idUtilisateur),
+    FOREIGN KEY (idspecialite) REFERENCES specialite(idspecialite)
+);
+
+-- Table de relation : prend (Medecin - Patient - RendezVous)
+CREATE TABLE prend (
+    idUtilisateur INT NOT NULL,
+    idPatient INT NOT NULL,
+    idRdv INT NOT NULL,
+    PRIMARY KEY (idUtilisateur, idPatient, idRdv),
+    FOREIGN KEY (idUtilisateur) REFERENCES Medecin(idUtilisateur),
+    FOREIGN KEY (idPatient) REFERENCES Patient(idPatient),
+    FOREIGN KEY (idRdv) REFERENCES RendezVous(idRdv)
+);
+
+-- Table de relation : realise (Medecin - Consultation)
+CREATE TABLE realise (
+    idUtilisateur INT NOT NULL,
+    idConsultation INT NOT NULL,
+    PRIMARY KEY (idUtilisateur, idConsultation),
+    FOREIGN KEY (idUtilisateur) REFERENCES Medecin(idUtilisateur),
+    FOREIGN KEY (idConsultation) REFERENCES Consultation(idConsultation)
+);
+
+-- Table de relation : concerne (Medecin - Patient - Consultation)
+CREATE TABLE concerne (
+    idUtilisateur INT NOT NULL,
+    idPatient INT NOT NULL,
+    idConsultation INT NOT NULL,
+    PRIMARY KEY (idUtilisateur, idPatient, idConsultation),
+    FOREIGN KEY (idUtilisateur) REFERENCES Medecin(idUtilisateur),
+    FOREIGN KEY (idPatient) REFERENCES Patient(idPatient),
+    FOREIGN KEY (idConsultation) REFERENCES Consultation(idConsultation)
+);
+
+-- ============================================
+-- DONNÉES DE TEST
+-- ============================================
+
+-- Spécialités
+INSERT INTO specialite (libelle, description) VALUES
+('Cardiologie', 'Maladies du cœur et des vaisseaux'),
+('Pédiatrie', 'Médecine des enfants'),
+('Dermatologie', 'Maladies de la peau');
+
+-- Statistiques
+INSERT INTO Statistiques (periode, nbRendezVous, nbPatient, nbAnnulations, nbconsultation) 
+VALUES ('2024-01', 45, 30, 5, 40);
+
+-- Utilisateurs (mot de passe = SHA2 de "admin123")
+INSERT INTO Utilisateur (login, motDePasse, role, actif, nomUtilisateur, prenomUtilisateur, telephoneUtilisateur, emailUtilisateur)
+VALUES 
+('admin', SHA2('admin123', 256), 'ADMIN', TRUE, 'Dupont', 'Jean', '0600000001', 'admin@clinique.fr'),
+('dr.martin', SHA2('medecin123', 256), 'MEDECIN', TRUE, 'Martin', 'Sophie', '0600000002', 'sophie.martin@clinique.fr'),
+('secretaire1', SHA2('secret123', 256), 'SECRETAIRE', TRUE, 'Leroy', 'Marie', '0600000003', 'marie.leroy@clinique.fr');
+
+-- Administrateur
+INSERT INTO Administrateur (idUtilisateur, idspecialite, idstatistiques) VALUES (1, NULL, 1);
+
+-- Médecin
+INSERT INTO Medecin (idUtilisateur, numOrdre) VALUES (2, 'ORD-2024-001');
+
+-- Secrétaire
+INSERT INTO Secretaire (idUtilisateur) VALUES (3);
+
+-- Spécialité du médecin
+INSERT INTO possede (idUtilisateur, idspecialite) VALUES (2, 1);
+
+-- Patients
+INSERT INTO Patient (nomPatient, prenomPatient, dateNaissance, telephonePatient, emailPatient, adresse, groupeSanguin)
+VALUES 
+('Bernard', 'Paul', '1985-03-15', '0611111111', 'paul.bernard@email.com', '12 rue de la Paix, Paris', 'A+'),
+('Moreau', 'Claire', '1990-07-22', '0622222222', 'claire.moreau@email.com', '5 avenue Victor Hugo, Lyon', 'B-'),
+('Petit', 'Lucas', '2000-11-30', '0633333333', 'lucas.petit@email.com', '8 boulevard Gambetta, Marseille', 'O+');
